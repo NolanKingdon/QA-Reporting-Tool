@@ -6,21 +6,11 @@ Going to rewrite the Program with the following Goals:
 			and pulling out names included for the name bank. This should let us
 			Build the DB and report on it so long as we handle Nulls
 	- IS CLEAN TO LOOK AT
-		- I don't want any variables that are fucking Obscure (specialist[specialList[0]] - SRS?)
+		- I don't want any variables that are Obscure (specialist[specialList[0]] - SRS?)
 	- The same if not less lines of code than the original
 		- Roughly 400 uncommented was ver2
 	- Better SQL Code
 		- Those got hefty. Maybe learn some more SQL iterate with an insert into instead of typing out specialist[1-13]
-	- Written In one Week (Before my final QA run so I can give it to Natasha or whoever)
-	- Have a nice end product to put on GitHub
-'''
-
-''' 
-	*** NEXT STEPS ***
-		- Create DB connection
-		- Create Read file
-		- Start testing QQ
-
 '''
 import sqlite3
 import time
@@ -214,6 +204,10 @@ def data_entry_Specialists(today, csv_File):
 ''' CSV READ '''
 
 def metrics(readCSV, nameBank):
+'''
+	Consider splitting this into two or more functions? Would make it tons more manageable.
+	Plus making it run through like it is and THEN have it return something seems fairly unclear.
+'''
 	#Writing everything once as a global was faster than writing everything twice as paramaters/Arguments.
 	global Pickup_Count
 	global Assign_Count
@@ -308,9 +302,58 @@ def metrics(readCSV, nameBank):
 		if i not in nameBank:
 			nameBank.append(i)
 	return nameBank
-	
-''' SQL WRITE '''
 
+def timeUntilComplete(inTime, completeTime):
+
+	global Time_Complete
+
+	if completeTime == "":
+		pass
+	else:
+		#To check to see if we add 31 or 30, or 28
+		thirtyMonths = [1, 3, 5, 7, 8, 10, 12]
+
+		splitIn = inTime.split("/")
+		iD = int(splitIn[1])
+		iM = int(splitIn[0])
+		splitOut = completeTime.split("/")
+		oD = int(splitOut[1])
+		difDate = oD - iD
+		if difDate < 0 and (iM in thirtyMonths and iM != 2):
+			correctDate = 31 + difDate
+			Time_Complete.append(correctDate)
+		elif difDate < 0 and (iM not in thirtyMonths and iM != 2):
+			correctDate = 30 + difDate
+			Time_Complete.append(correctDate)
+		elif difDate < 0 and iM == 2:
+			correctDate = 28 + difDate
+			Time_Complete.append(correctDate)
+		else:
+			Time_Complete.append(difDate)
+#Function for Closeness to Deadline on submission
+def timeUntilDue(inTime, outTime):
+
+	global Time_Due
+	#To check to see if we add 31 or 30, or 28
+	thirtyMonths = [1, 3, 5, 7, 8, 10, 12]
+
+	splitIn = inTime.split("/")
+	iD = int(splitIn[1])
+	iM = int(splitIn[0])
+	splitOut = outTime.split("/")
+	oD = int(splitOut[1])
+	difDate = oD - iD
+	if difDate < 0 and (iM in thirtyMonths and iM != 2):
+		correctDate = 31 + difDate
+		Time_Due.append(correctDate)
+	elif difDate < 0 and (iM not in thirtyMonths and iM != 2):
+		correctDate = 30 + difDate
+		Time_Due.append(correctDate)
+	elif difDate < 0 and iM == 2:
+		correctDate = 28 + difDate
+		Time_Due.append(correctDate)
+	else:
+		Time_Due.append(difDate)
 
 ''' SQL READ '''
 
@@ -333,3 +376,15 @@ def read_from_db_Totals():
 	return listData
 
 ''' XLSX WRITE '''
+#Pull from ver2
+
+''' MAIN '''
+
+def main():
+	#Read names into Namebank from CSV or DB
+	#Have full list of unique names
+	#Read CSV into memory with Metrics
+	#Push to SQL
+	#Bring in Cumulative SQL info with reads
+	#Write to XLSX (pull from ver2)
+	pass
