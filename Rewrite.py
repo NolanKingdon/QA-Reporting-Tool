@@ -46,6 +46,7 @@ Average_Due_Time = []
 
 	#PREPARATION FUNCTIONS
 def create_list_data(*args):
+	#Args will be Name_Bank
 	for i in args:
 	    for j in i:
 		    Pickup_Count.append(j)
@@ -75,7 +76,13 @@ def create_list_data(*args):
 		    Assign_Count.append(i)
 		    Assign_Count.append(0)
 
-def create_tables():
+def all_names(csvNames, dbNames):
+	Name_Bank.append(csvNames, dbNames)
+	Name_Bank.sort()
+	print(Name_Bank)
+	return Name_Bank
+
+def create_tables(nameBank):
 	Table_Bank = ["AssignedQA","PickedUpQA","PutUpQA"]
 	c.execute("CREATE TABLE IF NOT EXISTS 'Metrics'('Date' TEXT, TotalQA TEXT, AssignedQA TEXT, UnAssigned TEXT, AverageTimeUntilCompleted TEXT, AverageTimeUntilDueDate TEXT)")
 	c.execute("CREATE TABLE IF NOT EXISTS 'Totals'('Date' TEXT, Initial TEXT, Delivery TEXT, Launch TEXT, SchoolChoice TEXT, Payment TEXT, YRU TEXT, Other TEXT)")
@@ -89,8 +96,13 @@ def create_tables():
 	for i in Table_Bank:
 		c.execute("CREATE TABLE IF NOT EXISTS '" + i + "'('" + Name_Str + ")")		
 	'''
+	nameHold = "'('Date' TEXT"
+	for name in nameBank:
+		nameHold += (", '" + name + "' TEXT")
 	for i in Table_Bank:
-		c.execute("CREATE TABLE IF NOT EXISTS '" + i + "'('Date' TEXT, 'Sarah Khan' TEXT, 'Patryk Szuszkiewicz' TEXT, 'Alex Oestreicher' TEXT, 'Nolan Kingdon' TEXT, 'Phil Hobrla' TEXT, 'Dale Fillpot' TEXT, 'Stratton Barry' TEXT, 'Rachel Shaw' TEXT,'Zachary Scott' TEXT, 'Duy Trinh' TEXT, 'Laura Jaczenko' TEXT, 'Diane Sellars' TEXT)")
+		c.execute("CREATE TABLE IF NOT EXISTS '" + i + nameHold)
+	
+
 	for i in Name_Bank:
 		c.execute("CREATE TABLE IF NOT EXISTS '" + i + "'('Date' TEXT, 'Taken By' TEXT, DueDate TEXT, Netsuite TEXT, LeadSpecialist TEXT, District TEXT, Year TEXT, Solution TEXT, QAType TEXT, SIS TEXT, ENT TEXT, Payment TEXT, Localization TEXT, SC TEXT, SSO TEXT, SchoolLocator TEXT, NorthCarolina TEXT, EmailHistory TEXT, CompletedDate TEXT, Submitted TEXT, qa_Assigned TEXT)")
 
@@ -203,6 +215,17 @@ def data_entry_Specialists(today, csv_File):
 
 ''' CSV READ '''
 
+def name_read(csvFile):
+	unique_names = []
+	csv_no_header = csvFile.next()
+	for row in csv_no_header:
+		if row[0] not in unique_names:
+			unique_names.append(row[0])
+		if row[3] not in unique_names:
+			unique_names.append(row[3])
+	print(unique_names)
+	return unique_names
+
 def metrics(readCSV, nameBank):
 '''
 	Consider splitting this into two or more functions? Would make it tons more manageable.
@@ -303,7 +326,7 @@ def metrics(readCSV, nameBank):
 			nameBank.append(i)
 	return nameBank
 
-def timeUntilComplete(inTime, completeTime):
+def time_Until_Complete(inTime, completeTime):
 
 	global Time_Complete
 
@@ -331,7 +354,7 @@ def timeUntilComplete(inTime, completeTime):
 		else:
 			Time_Complete.append(difDate)
 #Function for Closeness to Deadline on submission
-def timeUntilDue(inTime, outTime):
+def time_Until_Due(inTime, outTime):
 
 	global Time_Due
 	#To check to see if we add 31 or 30, or 28
@@ -357,6 +380,14 @@ def timeUntilDue(inTime, outTime):
 
 ''' SQL READ '''
 
+def db_name_read(headers):
+	#This could really be anything I suppose. All names are all written in these tables
+	c.execute("SELECT * FROM 'PutUpQA'")
+	names = list(map(lambda x: x[0], cursor.description))
+	print(names)
+	names.remove('Date')
+	return names
+
 def read_from_db_AssPickPut(table):
     c.execute('SELECT * FROM ' + table + '')
     data = c.fetchall()
@@ -381,10 +412,28 @@ def read_from_db_Totals():
 ''' MAIN '''
 
 def main():
-	#Read names into Namebank from CSV or DB
-	#Have full list of unique names
+
+	#CSV File read
+	input_name = str(input("Which CSV file did you want to open?\nAlternatively, type 'skip' to just print the xlsx\n"))
+	if input_name != 'skip':
+		input_name_full = input_name + ".csv"
+		with open(input_name_full, 'r') as export:
+			readCSV = list(csv.reader(export, delimiter = ','))
+			readCSV_Clone = readCSV
+			csv_names = name_read(readCSV)
+		export.close()
+
+	#DataBase connections created
+	Database_Name = str(input("DB You want to connect to/create?\n"))
+	Database_Name_Full = Database_Name + '.db'
+	conn = sqlite3.connect(Database_Name_Full)
+	c = conn.cursor()
+
+	db_names = db_names()
+	#Getting ALL names new or old
+	Name_Bank = all_names(csv_names, db_names)
+
 	#Read CSV into memory with Metrics
 	#Push to SQL
 	#Bring in Cumulative SQL info with reads
 	#Write to XLSX (pull from ver2)
-	pass
