@@ -65,12 +65,12 @@ def create_list_data(*args):
 
 	for i in Pick_Headers:
 		if i not in Pickup_Count:
-	    	Pickup_Count.append(i)
-	    	Pickup_Count.append(0)
+			Pickup_Count.append(i)
+			Pickup_Count.append(0)
 	for i in Put_Headers:
 		if i not in Putup_Count:
-		    Putup_Count.append(i)
-		    Putup_Count.append(0)
+			Putup_Count.append(i)
+			Putup_Count.append(0)
 	for i in Assign_Headers:
 		if i not in Assign_Count:
 		    Assign_Count.append(i)
@@ -82,7 +82,7 @@ def all_names(csvNames, dbNames):
 	print(Name_Bank)
 	return Name_Bank
 
-def create_tables(nameBank):
+def create_tables_statics():
 	Table_Bank = ["AssignedQA","PickedUpQA","PutUpQA"]
 	c.execute("CREATE TABLE IF NOT EXISTS 'Metrics'('Date' TEXT, TotalQA TEXT, AssignedQA TEXT, UnAssigned TEXT, AverageTimeUntilCompleted TEXT, AverageTimeUntilDueDate TEXT)")
 	c.execute("CREATE TABLE IF NOT EXISTS 'Totals'('Date' TEXT, Initial TEXT, Delivery TEXT, Launch TEXT, SchoolChoice TEXT, Payment TEXT, YRU TEXT, Other TEXT)")
@@ -96,6 +96,7 @@ def create_tables(nameBank):
 	for i in Table_Bank:
 		c.execute("CREATE TABLE IF NOT EXISTS '" + i + "'('" + Name_Str + ")")		
 	'''
+def create_tables_dynamics(nameBank):
 	nameHold = "'('Date' TEXT"
 	for name in nameBank:
 		nameHold += (", '" + name + "' TEXT")
@@ -147,8 +148,8 @@ def data_entry_AssignedQA(today, Assign_Count):
  		Dynamic_Names += ("'" + str(i) + "', ")
  		Dynamic_Values += "?, "
 
-    c.execute("INSERT INTO AssignedQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
-    conn.commit()
+	c.execute("INSERT INTO AssignedQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
+	conn.commit()
 
 def data_entry_PickedUpQA(today, Pickup_Count):
 	#This needs to happen AFTER the name cols in the DB have been updated	
@@ -172,8 +173,8 @@ def data_entry_PickedUpQA(today, Pickup_Count):
  		Dynamic_Names += ("'" + str(i) + "', ")
  		Dynamic_Values += "?, "
 
-    c.execute("INSERT INTO PickedUpQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
-    conn.commit()
+	c.execute("INSERT INTO PickedUpQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
+	conn.commit()
     
 def data_entry_PutUpQA(today, Putup_Count):
 	#This needs to happen AFTER the name cols in the DB have been updated	
@@ -197,9 +198,9 @@ def data_entry_PutUpQA(today, Putup_Count):
  		Dynamic_Names += ("'" + str(i) + "', ")
  		Dynamic_Values += "?, "
 
-    c.execute("INSERT INTO PutUpQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
-    conn.commit()
-  
+	c.execute("INSERT INTO PutUpQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
+	conn.commit()
+
 def data_entry_Totals(today, Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other):
     
     c.execute("INSERT INTO Totals ('Date', Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other) VALUES (?,?,?,?,?,?,?,?)",
@@ -217,20 +218,19 @@ def data_entry_Specialists(today, csv_File):
 
 def name_read(csvFile):
 	unique_names = []
-	csv_no_header = csvFile.next()
+	csv_no_header = csvFile[1::]
 	for row in csv_no_header:
-		if row[0] not in unique_names:
+		if row[0] not in unique_names and row[0] != "":
 			unique_names.append(row[0])
 		if row[3] not in unique_names:
 			unique_names.append(row[3])
-	print(unique_names)
 	return unique_names
 
 def metrics(readCSV, nameBank):
-'''
+	'''
 	Consider splitting this into two or more functions? Would make it tons more manageable.
 	Plus making it run through like it is and THEN have it return something seems fairly unclear.
-'''
+	'''
 	#Writing everything once as a global was faster than writing everything twice as paramaters/Arguments.
 	global Pickup_Count
 	global Assign_Count
@@ -380,9 +380,10 @@ def time_Until_Due(inTime, outTime):
 
 ''' SQL READ '''
 
-def db_name_read(headers):
+def db_name_read(c):
+	#Is this because main is now a function? Worked before without a global declaration
 	#This could really be anything I suppose. All names are all written in these tables
-	c.execute("SELECT * FROM 'PutUpQA'")
+	c.execute('SELECT * FROM PutUpQA')
 	names = list(map(lambda x: x[0], cursor.description))
 	print(names)
 	names.remove('Date')
@@ -422,14 +423,16 @@ def main():
 			readCSV_Clone = readCSV
 			csv_names = name_read(readCSV)
 		export.close()
-
+	
 	#DataBase connections created
+	#For some reason c isn't recognized as a variable in future iterations - I assume because I need to pass it, but passing it doesn't change it
 	Database_Name = str(input("DB You want to connect to/create?\n"))
 	Database_Name_Full = Database_Name + '.db'
 	conn = sqlite3.connect(Database_Name_Full)
 	c = conn.cursor()
-
-	db_names = db_names()
+	create_tables_statics()
+	#Getting DB names in PutUpQA (All names are stored here)
+	db_names = db_name_read()
 	#Getting ALL names new or old
 	Name_Bank = all_names(csv_names, db_names)
 
@@ -437,3 +440,7 @@ def main():
 	#Push to SQL
 	#Bring in Cumulative SQL info with reads
 	#Write to XLSX (pull from ver2)
+
+#Start
+if __name__ == "__main__":
+	main()
