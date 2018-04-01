@@ -21,6 +21,13 @@ import xlsxwriter
 
 ''' VARIABLES '''
 
+#DataBase connections created
+#For some reason c isn't recognized in other functions when put in main even when it's passed as an argument. Trying it here
+Database_Name = str(input("DB You want to connect to/create?\n"))
+Database_Name_Full = Database_Name + '.db'
+conn = sqlite3.connect(Database_Name_Full)
+c = conn.cursor()
+
 date = time.strftime('%m-%d-%Y')
 year = time.strftime('%Y')
 Name_Bank = []
@@ -77,41 +84,40 @@ def create_list_data(*args):
 		    Assign_Count.append(0)
 
 def all_names(csvNames, dbNames):
-	Name_Bank.append(csvNames, dbNames)
+	Name_Bank = []
+
+	for i in csvNames:
+		Name_Bank.append(i)
+	for i in dbNames:
+		Name_Bank.append(i)
 	Name_Bank.sort()
-	print(Name_Bank)
+	print("Name bank:", Name_Bank)
 	return Name_Bank
 
 def create_tables_statics():
 	Table_Bank = ["AssignedQA","PickedUpQA","PutUpQA"]
 	c.execute("CREATE TABLE IF NOT EXISTS 'Metrics'('Date' TEXT, TotalQA TEXT, AssignedQA TEXT, UnAssigned TEXT, AverageTimeUntilCompleted TEXT, AverageTimeUntilDueDate TEXT)")
 	c.execute("CREATE TABLE IF NOT EXISTS 'Totals'('Date' TEXT, Initial TEXT, Delivery TEXT, Launch TEXT, SchoolChoice TEXT, Payment TEXT, YRU TEXT, Other TEXT)")
-	#Ideally after the initial DB read AND export read so we can have a full name list of things we need to create
-	#Maybe not super important, given this is the creation and not the insert actually.
-	'''   This would be the replacement and would require the above changes
-	Name_Str = "'Date' TEXT"
-	for i in nameBank:
-		hold = ", '" + i "' TEXT"
-		Name_Str += hold
-	for i in Table_Bank:
-		c.execute("CREATE TABLE IF NOT EXISTS '" + i + "'('" + Name_Str + ")")		
-	'''
+	c.execute("CREATE TABLE IF NOT EXISTS 'PutUpQA'('Date' TEXT)")
+	c.execute("CREATE TABLE IF NOT EXISTS 'PickedUpQA'('Date' TEXT)")
+	c.execute("CREATE TABLE IF NOT EXISTS 'AssignedQA'('Date' TEXT)")
+
 def create_tables_dynamics(nameBank):
 	nameHold = "'('Date' TEXT"
 	for name in nameBank:
 		nameHold += (", '" + name + "' TEXT")
 	for i in Table_Bank:
 		c.execute("CREATE TABLE IF NOT EXISTS '" + i + nameHold)
-	
-
 	for i in Name_Bank:
 		c.execute("CREATE TABLE IF NOT EXISTS '" + i + "'('Date' TEXT, 'Taken By' TEXT, DueDate TEXT, Netsuite TEXT, LeadSpecialist TEXT, District TEXT, Year TEXT, Solution TEXT, QAType TEXT, SIS TEXT, ENT TEXT, Payment TEXT, Localization TEXT, SC TEXT, SSO TEXT, SchoolLocator TEXT, NorthCarolina TEXT, EmailHistory TEXT, CompletedDate TEXT, Submitted TEXT, qa_Assigned TEXT)")
 
 def append_table_cols(specialist):
 	tables = ['AssignedQA','PickedUpQA','PutUpQA']
-	for i in tables:
-		c.execute("ALTER TABLE " + i + " ADD " + specialist + " TEXT")	
-
+	for table in tables:
+		for name in specialist:
+			#I believe this is the problem. The SQL code seems to be checking for the table. Will revise in next set of updates.
+			c.execute("ALTER TABLE IF NOT EXISTS " + table + " ADD '" + name + "' TEXT")
+			
 	#DATA ENTRY FUNCTIONS
 
 def data_entry_Metrics(today, TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate):
@@ -381,12 +387,10 @@ def time_Until_Due(inTime, outTime):
 ''' SQL READ '''
 
 def db_name_read(c):
-	#Is this because main is now a function? Worked before without a global declaration
-	#This could really be anything I suppose. All names are all written in these tables
 	c.execute('SELECT * FROM PutUpQA')
-	names = list(map(lambda x: x[0], cursor.description))
-	print(names)
+	names = list(map(lambda x: x[0], c.description))
 	names.remove('Date')
+	print("DB Names:", names)
 	return names
 
 def read_from_db_AssPickPut(table):
@@ -413,7 +417,6 @@ def read_from_db_Totals():
 ''' MAIN '''
 
 def main():
-
 	#CSV File read
 	input_name = str(input("Which CSV file did you want to open?\nAlternatively, type 'skip' to just print the xlsx\n"))
 	if input_name != 'skip':
@@ -424,18 +427,12 @@ def main():
 			csv_names = name_read(readCSV)
 		export.close()
 	
-	#DataBase connections created
-	#For some reason c isn't recognized as a variable in future iterations - I assume because I need to pass it, but passing it doesn't change it
-	Database_Name = str(input("DB You want to connect to/create?\n"))
-	Database_Name_Full = Database_Name + '.db'
-	conn = sqlite3.connect(Database_Name_Full)
-	c = conn.cursor()
 	create_tables_statics()
 	#Getting DB names in PutUpQA (All names are stored here)
-	db_names = db_name_read()
+	db_names = db_name_read(c)
 	#Getting ALL names new or old
 	Name_Bank = all_names(csv_names, db_names)
-
+	append_table_cols(Name_Bank)
 	#Read CSV into memory with Metrics
 	#Push to SQL
 	#Bring in Cumulative SQL info with reads
