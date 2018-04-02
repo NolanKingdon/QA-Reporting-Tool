@@ -549,7 +549,7 @@ def main():
 	write_report(date, year, Name_Bank, Updated_Metrics, Updated_Totals, Updated_PutUpQA, Updated_PickedUpQA, Updated_AssignedQA, allData, totals, workbook, header_format, title_format)
 
 	print("XLSX form is ready.\nPlease check the same location of the exe file.\nFile will be named today's date")
-	time.sleep(8)
+	time.sleep(6)
 	'''End of Script'''
 
 if __name__ == "__main__":
