@@ -23,6 +23,7 @@ import xlsxwriter
 
 #DataBase connections created
 #For some reason c isn't recognized in other functions when put in main even when it's passed as an argument. Trying it here
+
 Database_Name = str(input("DB You want to connect to/create?\n"))
 Database_Name_Full = Database_Name + '.db'
 conn = sqlite3.connect(Database_Name_Full)
@@ -84,17 +85,18 @@ def create_list_data(*args):
 		    Assign_Count.append(0)
 
 def all_names(csvNames, dbNames):
-	Name_Bank = []
+	#Decided not to write straight to dbNames for clarity's sake
+	Name_Bank = dbNames
 
-	for i in csvNames:
-		Name_Bank.append(i)
-	for i in dbNames:
-		Name_Bank.append(i)
+	for name in csvNames:
+		if name not in Name_Bank:
+			Name_Bank.append(name)
 	Name_Bank.sort()
 	print("Name bank:", Name_Bank)
 	return Name_Bank
 
 def create_tables_statics():
+	#Creating the table for the less dynamic aspects
 	Table_Bank = ["AssignedQA","PickedUpQA","PutUpQA"]
 	c.execute("CREATE TABLE IF NOT EXISTS 'Metrics'('Date' TEXT, TotalQA TEXT, AssignedQA TEXT, UnAssigned TEXT, AverageTimeUntilCompleted TEXT, AverageTimeUntilDueDate TEXT)")
 	c.execute("CREATE TABLE IF NOT EXISTS 'Totals'('Date' TEXT, Initial TEXT, Delivery TEXT, Launch TEXT, SchoolChoice TEXT, Payment TEXT, YRU TEXT, Other TEXT)")
@@ -103,6 +105,7 @@ def create_tables_statics():
 	c.execute("CREATE TABLE IF NOT EXISTS 'AssignedQA'('Date' TEXT)")
 
 def create_tables_dynamics(nameBank):
+	#Creating the table for all the dynamic names
 	nameHold = "'('Date' TEXT"
 	for name in nameBank:
 		nameHold += (", '" + name + "' TEXT")
@@ -116,7 +119,10 @@ def append_table_cols(specialist):
 	for table in tables:
 		for name in specialist:
 			#I believe this is the problem. The SQL code seems to be checking for the table. Will revise in next set of updates.
-			c.execute("ALTER TABLE IF NOT EXISTS " + table + " ADD '" + name + "' TEXT")
+			try:
+				c.execute("ALTER TABLE " + table + " ADD COLUMN'" + name + "' TEXT")
+			except:
+				print("Duplicate entry - Skipping.")
 			
 	#DATA ENTRY FUNCTIONS
 
@@ -426,16 +432,20 @@ def main():
 			readCSV_Clone = readCSV
 			csv_names = name_read(readCSV)
 		export.close()
-	
+'''Initialization Functions'''
 	create_tables_statics()
 	#Getting DB names in PutUpQA (All names are stored here)
 	db_names = db_name_read(c)
 	#Getting ALL names new or old
 	Name_Bank = all_names(csv_names, db_names)
 	append_table_cols(Name_Bank)
+	create_list_data(Name_Bank)
+'''Data Creation Function'''
 	#Read CSV into memory with Metrics
+'''SQLite Read/Write Functions'''
 	#Push to SQL
 	#Bring in Cumulative SQL info with reads
+'''XLSX Writer Functions'''
 	#Write to XLSX (pull from ver2)
 
 #Start
