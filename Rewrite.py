@@ -1,17 +1,3 @@
-'''
-Going to rewrite the Program with the following Goals:
-	- IS ENTIRELY DYNAMIC
-		- Namebank, PUCount, Inserting New Entries, Handling Nulls in DB... Etc.
-		- I have some ideas in ver 3 you should look at. It involves reading the CSV
-			and pulling out names included for the name bank. This should let us
-			Build the DB and report on it so long as we handle Nulls
-	- IS CLEAN TO LOOK AT
-		- I don't want any variables that are Obscure (specialist[specialList[0]] - SRS?)
-	- The same if not less lines of code than the original
-		- Roughly 400 uncommented was ver2
-	- Better SQL Code
-		- Those got hefty. Maybe learn some more SQL iterate with an insert into instead of typing out specialist[1-13]
-'''
 import sqlite3
 import time
 import datetime
@@ -20,11 +6,9 @@ from functools import reduce
 import xlsxwriter
 
 ''' VARIABLES '''
-
 #DataBase connections created
 #For some reason c isn't recognized in other functions when put in main even when it's passed as an argument. Trying it here
-
-Database_Name = str(input("DB You want to connect to/create?\n"))
+Database_Name = str(input("DB You want to connect to/create?\n\n"))
 Database_Name_Full = Database_Name + '.db'
 conn = sqlite3.connect(Database_Name_Full)
 c = conn.cursor()
@@ -51,7 +35,6 @@ Average_Complete_Time = []
 Average_Due_Time = []
 
 ''' FUNCTIONS '''
-
 	#PREPARATION FUNCTIONS
 def create_list_data(*args):
 	#Args will be Name_Bank
@@ -92,11 +75,10 @@ def all_names(csvNames, dbNames):
 		if name not in Name_Bank:
 			Name_Bank.append(name)
 	Name_Bank.sort()
-	print("Name bank:", Name_Bank)
 	return Name_Bank
 
 def create_tables_statics():
-	#Creating the table for the less dynamic aspects
+	#Creating the table for the less dynamic aspects (Tables that I know I Want to collect to)
 	Table_Bank = ["AssignedQA","PickedUpQA","PutUpQA"]
 	c.execute("CREATE TABLE IF NOT EXISTS 'Metrics'('Date' TEXT, TotalQA TEXT, AssignedQA TEXT, UnAssigned TEXT, AverageTimeUntilCompleted TEXT, AverageTimeUntilDueDate TEXT)")
 	c.execute("CREATE TABLE IF NOT EXISTS 'Totals'('Date' TEXT, Initial TEXT, Delivery TEXT, Launch TEXT, SchoolChoice TEXT, Payment TEXT, YRU TEXT, Other TEXT)")
@@ -105,29 +87,23 @@ def create_tables_statics():
 	c.execute("CREATE TABLE IF NOT EXISTS 'AssignedQA'('Date' TEXT)")
 
 def create_tables_dynamics(nameBank):
-	#Creating the table for all the dynamic names
-	nameHold = "'('Date' TEXT"
-	for name in nameBank:
-		nameHold += (", '" + name + "' TEXT")
-	for i in Table_Bank:
-		c.execute("CREATE TABLE IF NOT EXISTS '" + i + nameHold)
-	for i in Name_Bank:
+	#Creating the table for all the dynamic names (Names that may not be already in the DB)
+	for i in nameBank:
 		c.execute("CREATE TABLE IF NOT EXISTS '" + i + "'('Date' TEXT, 'Taken By' TEXT, DueDate TEXT, Netsuite TEXT, LeadSpecialist TEXT, District TEXT, Year TEXT, Solution TEXT, QAType TEXT, SIS TEXT, ENT TEXT, Payment TEXT, Localization TEXT, SC TEXT, SSO TEXT, SchoolLocator TEXT, NorthCarolina TEXT, EmailHistory TEXT, CompletedDate TEXT, Submitted TEXT, qa_Assigned TEXT)")
 
 def append_table_cols(specialist):
 	tables = ['AssignedQA','PickedUpQA','PutUpQA']
 	for table in tables:
 		for name in specialist:
-			#I believe this is the problem. The SQL code seems to be checking for the table. Will revise in next set of updates.
 			try:
+				#Fix this in the future with better SQL to avoid the try/except maybe?
 				c.execute("ALTER TABLE " + table + " ADD COLUMN'" + name + "' TEXT")
 			except:
-				print("Duplicate entry - Skipping.")
-			
+				#If they're already in the DB, I really don't want anything to happen
+				pass
+
 	#DATA ENTRY FUNCTIONS
-
 def data_entry_Metrics(today, TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate):
-
     c.execute("INSERT INTO Metrics ('Date', TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate) VALUES (?,?,?,?,?,?)",
           (today, TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate))
     conn.commit()
@@ -139,85 +115,57 @@ def data_entry_Totals(today, Initial, Delivery, Launch, SchoolChoice, Payment, Y
     conn.commit()
 
 def data_entry_AssignedQA(today, Assign_Count):	
-	#This needs to happen AFTER the name cols in the DB have been updated	
-	c.execute("SELECT * FROM AssignedQA")
-
-	nameList = list(map(lambda x: x[0], c.description))
-
 	Dynamic_Names = ""
-	Dynamic_Values = ""
+	Dynamic_Values = "?, "
 	List_Data = [today]
 
 	for i in Assign_Count:
 		if type(i) == int:
 			List_Data.append(i)
-	while len(nameList) > len(List_Data)-1:
-		List_Data.append(0)
+			Dynamic_Values +="?, "
+		if type(i) == str:
+			Dynamic_Names += ("'" + str(i) + "', ")
 
+	#SQLite3 takes a tuple argument for the inputs to the DB
 	Tuple_Data = tuple(List_Data)
 
-	for i in nameList:
- 		Dynamic_Names += ("'" + str(i) + "', ")
- 		Dynamic_Values += "?, "
-
-	c.execute("INSERT INTO AssignedQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
+	c.execute("INSERT INTO AssignedQA('Date', " + Dynamic_Names[:-2] + ") VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
 	conn.commit()
 
 def data_entry_PickedUpQA(today, Pickup_Count):
 	#This needs to happen AFTER the name cols in the DB have been updated	
-	c.execute("SELECT * FROM PickedUpQA")
-
-	nameList = list(map(lambda x: x[0], c.description))
-
 	Dynamic_Names = ""
-	Dynamic_Values = ""
+	Dynamic_Values = "?, "
 	List_Data = [today]
 
 	for i in Pickup_Count:
 		if type(i) == int:
 			List_Data.append(i)
-	while len(nameList) > len(List_Data)-1:
-		List_Data.append(0)
+			Dynamic_Values +="?, "
+		if type(i) == str:
+			Dynamic_Names += ("'" + str(i) + "', ")
 
+	#SQLite3 takes a tuple argument for the inputs to the DB
 	Tuple_Data = tuple(List_Data)
 
-	for i in nameList:
- 		Dynamic_Names += ("'" + str(i) + "', ")
- 		Dynamic_Values += "?, "
-
-	c.execute("INSERT INTO PickedUpQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
+	c.execute("INSERT INTO PickedUpQA('Date', " + Dynamic_Names[:-2] + ") VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
 	conn.commit()
     
 def data_entry_PutUpQA(today, Putup_Count):
-	#This needs to happen AFTER the name cols in the DB have been updated	
-	c.execute("SELECT * FROM PutUpQA")
-
-	nameList = list(map(lambda x: x[0], c.description))
-
 	Dynamic_Names = ""
-	Dynamic_Values = ""
+	Dynamic_Values = "?, "
 	List_Data = [today]
 
 	for i in Putup_Count:
 		if type(i) == int:
 			List_Data.append(i)
-	while len(nameList) > len(List_Data)-1:
-		List_Data.append(0)
-
+			Dynamic_Values +="?, "
+		if type(i) == str:
+			Dynamic_Names += ("'" + str(i) + "', ")
+	#SQLite3 takes a tuple argument for the inputs to the DB
 	Tuple_Data = tuple(List_Data)
-
-	for i in nameList:
- 		Dynamic_Names += ("'" + str(i) + "', ")
- 		Dynamic_Values += "?, "
-
-	c.execute("INSERT INTO PutUpQA('Date', " + Dynamic_Names[:-2] + " VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
+	c.execute("INSERT INTO PutUpQA('Date', " + Dynamic_Names[:-2] + ") VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
 	conn.commit()
-
-def data_entry_Totals(today, Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other):
-    
-    c.execute("INSERT INTO Totals ('Date', Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other) VALUES (?,?,?,?,?,?,?,?)",
-          (today, Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other))
-    conn.commit()
 
 def data_entry_Specialists(today, csv_File):
 	#This is probably fine TBH
@@ -227,7 +175,6 @@ def data_entry_Specialists(today, csv_File):
 	conn.commit()
 
 ''' CSV READ '''
-
 def name_read(csvFile):
 	unique_names = []
 	csv_no_header = csvFile[1::]
@@ -241,9 +188,8 @@ def name_read(csvFile):
 def metrics(readCSV, nameBank):
 	'''
 	Consider splitting this into two or more functions? Would make it tons more manageable.
-	Plus making it run through like it is and THEN have it return something seems fairly unclear.
 	'''
-	#Writing everything once as a global was faster than writing everything twice as paramaters/Arguments.
+	#Writing everything once as a global seemed the most convenient in this case.
 	global Pickup_Count
 	global Assign_Count
 	global Putup_Count
@@ -306,40 +252,37 @@ def metrics(readCSV, nameBank):
 			Total_Assigned +=1
 	iter(readCSV)
 	
-	#Tracking who picked up QAs (I messed this up so it's inverted. Was easier to fix the label)
+	#Tracking who picked up QAs
 	for ass in readCSV:
 		if ass[0] in nameBank and ass[-1] =="1":
-			ACount[ass[0]] += 1
-	#Tracking who was assigned QAs (ibid)
+			Name_Place = Assign_Count.index(ass[0])
+			Assign_Count[Name_Place+1] +=1
+	#Tracking who was assigned QAs
 	for row in readCSV:
 		if row[0] in nameBank and row[-1] == "0":
-			PUCount[row[0]] += 1
+			Name_Place = Pickup_Count.index(row[0])
+			Pickup_Count[(Name_Place+1)] += 1
 	#Tracking who put in QAs
 	for row in readCSV:
 		if row[3] in nameBank:
-			PutCount[row[3]] += 1
+			Name_Place = Putup_Count.index(row[3])
+			Putup_Count[(Name_Place+1)] += 1
 
 	iter(readCSV)
 	#Dates
 	for i in readCSV[1:]:
-		timeUntilDue(i[-2],i[1])
+		time_Until_Due(i[-2],i[1])
 	amtOfDueDates = len(Time_Due)
 	Average_Due_Time = round((reduce((lambda x,y: x+y), Time_Due))/amtOfDueDates, 2)
 	iter(readCSV)
 
 	for i in readCSV[1:]:
-		timeUntilComplete(i[-2],i[-3])
+		time_Until_Complete(i[-2],i[-3])
 	amtOfCompletes = len(Time_Complete)
 	Average_Complete_Time = round((reduce((lambda x,y: x+y), Time_Complete))/amtOfCompletes, 2)
 	iter(readCSV)
 
-	for i in readCSV[1:]:
-		if i not in nameBank:
-			nameBank.append(i)
-	return nameBank
-
 def time_Until_Complete(inTime, completeTime):
-
 	global Time_Complete
 
 	if completeTime == "":
@@ -367,7 +310,6 @@ def time_Until_Complete(inTime, completeTime):
 			Time_Complete.append(difDate)
 #Function for Closeness to Deadline on submission
 def time_Until_Due(inTime, outTime):
-
 	global Time_Due
 	#To check to see if we add 31 or 30, or 28
 	thirtyMonths = [1, 3, 5, 7, 8, 10, 12]
@@ -396,7 +338,6 @@ def db_name_read(c):
 	c.execute('SELECT * FROM PutUpQA')
 	names = list(map(lambda x: x[0], c.description))
 	names.remove('Date')
-	print("DB Names:", names)
 	return names
 
 def read_from_db_AssPickPut(table):
@@ -418,21 +359,162 @@ def read_from_db_Totals():
 	return listData
 
 ''' XLSX WRITE '''
-#Pull from ver2
+def write_report(date, year, nameBank, updated_Metrics, updated_Totals, updated_PutUp, updated_PickedUp, updated_Assigned, allData, totals, workbook,header_format, title_format):
+	totals.write(0, 2, "QA REPORT " + date, title_format)
+	totals.write(4, 0, "Total QAs", header_format)
+	totals.write(5, 0, "Taken/Assigned QAs", header_format)
+	totals.write(6, 0, "Pending QAs", header_format)
+	totals.write(7, 0, "Average Time Until Completed", header_format)
+	totals.write(8, 0, "Average Time Until Due Date", header_format)
+	#Writing the metrics - Move to a function that takes in year and updated_Metrics. Merge with above for a more clean look
+	HeaderCount = 1
+	RowCount = 4
+	Header_List = [{"header":'Metric'}]
+	
+	for i in updated_Metrics:
+		for j in i:
+			if year in j:
+				#Take this header writer, append it to a list instead, annnnnd.....
+				totals.write(3, HeaderCount, j, header_format)
+				HeaderCount += 1
+				RowCount = 4
+				Header_List.append({"header":j})
+			if year not in j:
+				totals.write(RowCount, HeaderCount-1, j)
+				RowCount += 1
+				#add it in as a part of the table so the columns will be from the list of dates.
+	totals.add_table(3,0, RowCount-1, HeaderCount-1, {'columns':Header_List})
+
+	totals.write(11, 0, "Initial", header_format)
+	totals.write(12, 0, "Delivery", header_format)
+	totals.write(13, 0, "Launch", header_format)
+	totals.write(14, 0, "School Choice", header_format)
+	totals.write(15, 0, "Payment", header_format)
+	totals.write(16, 0, "YRU", header_format)
+	totals.write(17, 0, "Other", header_format)
+
+	#writing the totals
+	HeaderCount = 1
+	RowCount = 11
+	Header_List = [{"header":'QA Type'}]
+	
+	for i in updated_Totals:
+		for j in i:
+			if year in j:
+				totals.write(10, HeaderCount, j, header_format)
+				HeaderCount += 1
+				RowCount = 11
+				Header_List.append({"header":j})
+			if year not in j:
+				totals.write(RowCount, HeaderCount-1, j)
+				RowCount += 1
+	totals.add_table(10,0, RowCount-1, HeaderCount-1, {'columns':Header_List})
+
+	#AMOUNT OF QAS ASSIGNED
+
+	totals.write(19, 0, "Amount of QAs Assigned", header_format)
+	#This is the starting point for the line var.
+	#It is currently 21 (Because of the metrics above taking up x amount of space)	
+	lineStatic = 21
+	lineDynamic = 21
+	
+	for i in nameBank:
+		totals.write(lineDynamic, 0, i, header_format)	
+		lineDynamic +=1
+		#We end off here with the line value being around 32 (Where it was before)
+	HeaderCount = 1
+	#Wanna make sure our rows are starting at 21 too
+	RowCount = lineStatic
+	Header_List = [{"header":'Specialist'}]
+	
+	for i in updated_Assigned:
+		for j in i:
+			if j == None:
+				j = "0"
+			if year in j:
+				HeaderCount +=1
+				#Wanna make sure the rows go back to 21
+				RowCount = lineStatic
+				Header_List.append({"header":j})
+			else:
+				totals.write(RowCount, HeaderCount-1, j)
+				RowCount +=1
+				#We are ending this with the rowcount at roughtly 32
+	
+	totals.add_table(lineStatic-1,0, RowCount-1, HeaderCount-1, {'columns':Header_List})
+	#Lets also add 1 to our dynamic count so we can write another line down
+	lineDynamic += 1
+	totals.write(lineDynamic, 0, "Amount of QAs Picked Up", header_format)
+	#It was at 33 for the title write, now we are 35 for the specialist writes
+	lineDynamic +=2
+	#We need a reference at 35
+	lineStatic = lineDynamic
+	for i in nameBank:
+		totals.write(lineDynamic, 0, i, header_format)	
+		lineDynamic +=1
+	
+	#lineDynamic is now 46
+	HeaderCount = 1
+	RowCount = lineStatic
+	Header_List = [{"header":'Specialist'}]
+	
+	for i in updated_PickedUp:
+		for j in i:
+			if j == None:
+				j = "0"
+			if year in j:
+				HeaderCount +=1
+				RowCount = lineStatic
+				Header_List.append({"header":j})
+			else:
+				totals.write(RowCount, HeaderCount-1, j)
+				RowCount +=1
+	#Referencing one BEFORE lineStatic to make sure we get everything
+	totals.add_table(lineStatic-1 ,0, RowCount-1, HeaderCount-1, {'columns':Header_List})
+
+	lineDynamic += 1
+	totals.write(lineDynamic, 0, "Amount of QAs Put Up", header_format)
+	lineDynamic += 2
+	lineStatic = lineDynamic
+
+	for i in nameBank:
+		totals.write(lineDynamic, 0, i, header_format)	
+		lineDynamic +=1
+	HeaderCount = 1
+	#We want rowCount to be 35. which is what lineDynamic WAS.
+	RowCount = lineStatic
+	Header_List = [{"header":'Specialist'}]
+	for i in updated_PutUp:
+		for j in i:
+			if j == None:
+				j = "0"
+			if year in j:
+				HeaderCount +=1
+				RowCount = lineStatic
+				Header_List.append({"header":j})
+			else:
+				totals.write(RowCount, HeaderCount-1, j, header_format)
+				RowCount +=1
+	totals.add_table(lineStatic-1,0, RowCount-1, HeaderCount-1, {'columns':Header_List})
 
 ''' MAIN '''
-
 def main():
 	#CSV File read
-	input_name = str(input("Which CSV file did you want to open?\nAlternatively, type 'skip' to just print the xlsx\n"))
-	if input_name != 'skip':
-		input_name_full = input_name + ".csv"
-		with open(input_name_full, 'r') as export:
-			readCSV = list(csv.reader(export, delimiter = ','))
-			readCSV_Clone = readCSV
-			csv_names = name_read(readCSV)
-		export.close()
-'''Initialization Functions'''
+	while True:
+		try:
+			input_name = str(input("Which CSV file did you want to open?\n\n"))
+			if input_name != 'skip':
+				input_name_full = input_name + ".csv"
+				with open(input_name_full, 'r') as export:
+					readCSV = list(csv.reader(export, delimiter = ','))
+					readCSV_Clone = readCSV
+					csv_names = name_read(readCSV)
+				export.close()
+			break
+		except:
+			print("\nInvalid file name, please try again (Just use the file name, not the .csv extension)\n")
+			continue
+	'''Initialization Functions'''
 	create_tables_statics()
 	#Getting DB names in PutUpQA (All names are stored here)
 	db_names = db_name_read(c)
@@ -440,14 +522,35 @@ def main():
 	Name_Bank = all_names(csv_names, db_names)
 	append_table_cols(Name_Bank)
 	create_list_data(Name_Bank)
-'''Data Creation Function'''
-	#Read CSV into memory with Metrics
-'''SQLite Read/Write Functions'''
-	#Push to SQL
+	create_tables_dynamics(Name_Bank)
+	'''Data Creation Function'''
+	metrics(readCSV, Name_Bank)
+	'''SQLite Read/Write Functions'''
+	data_entry_Metrics(date, Total_QA, Total_Assigned, Total_Assigned, Average_Complete_Time, Average_Due_Time)
+	data_entry_Totals(date, Total_Initial, Total_Delivery, Total_Launch, Total_SC, Total_Payment, Total_YRU, Total_Other)
+	data_entry_AssignedQA(date, Assign_Count)
+	data_entry_PickedUpQA(date, Pickup_Count)
+	data_entry_PutUpQA(date, Putup_Count)
+	data_entry_Specialists(date, readCSV)
 	#Bring in Cumulative SQL info with reads
-'''XLSX Writer Functions'''
-	#Write to XLSX (pull from ver2)
+	Updated_AssignedQA = read_from_db_AssPickPut("AssignedQA")
+	Updated_PutUpQA = read_from_db_AssPickPut("PutUpQA")
+	Updated_PickedUpQA = read_from_db_AssPickPut("PickedUpQA")
+	Updated_Metrics = read_from_db_Metrics()
+	Updated_Totals = read_from_db_Totals()
 
-#Start
+	'''XLSX Writer Functions'''
+	workbook = xlsxwriter.Workbook(date + '.xlsx')
+	totals = workbook.add_worksheet("Totals")
+	totals.set_column('A:Z', 18)
+	allData = workbook.add_worksheet("Weekly Raw Data")
+	header_format = workbook.add_format({'bold': True})
+	title_format = workbook.add_format({'bold': True, 'font_size': 20, 'underline': True})
+	write_report(date, year, Name_Bank, Updated_Metrics, Updated_Totals, Updated_PutUpQA, Updated_PickedUpQA, Updated_AssignedQA, allData, totals, workbook, header_format, title_format)
+
+	print("XLSX form is ready.\nPlease check the same location of the exe file.\nFile will be named today's date")
+	time.sleep(8)
+	'''End of Script'''
+
 if __name__ == "__main__":
 	main()
