@@ -15,7 +15,7 @@ The script itself is designed to be run **weekly** - Running twice in one day wi
 #### Important Notes about testing
 
 * When asked for inputs, file names are __without__ the file extension
- * TestData1.csv inputs as TestData1.
- * Your database is entered in the same way - __NewDatabase__ as an input creates __NewDatabase.db__ in the directory
+  * TestData1.csv inputs as TestData1.
+  * Your database is entered in the same way - __NewDatabase__ as an input creates __NewDatabase.db__ in the directory
 * File name is pulled from today's date
 * Column header is pulled from todays date in the XLSX output - see above for how to avoid errors related to this when testing
