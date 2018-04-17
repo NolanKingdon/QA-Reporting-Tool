@@ -7,7 +7,6 @@ import xlsxwriter
 
 ''' VARIABLES '''
 #DataBase connections created
-#For some reason c isn't recognized in other functions when put in main even when it's passed as an argument. Trying it here
 Database_Name = str(input("DB You want to connect to/create?\n\n"))
 Database_Name_Full = Database_Name + '.db'
 conn = sqlite3.connect(Database_Name_Full)
@@ -36,9 +35,8 @@ Average_Due_Time = []
 
 ''' FUNCTIONS '''
 	#PREPARATION FUNCTIONS
-def create_list_data(*args):
-	#Args will be Name_Bank
-	for i in args:
+def create_list_data(name_bank):
+	for i in name_bank:
 	    for j in i:
 		    Pickup_Count.append(j)
 		    Pickup_Count.append(0)
@@ -46,14 +44,14 @@ def create_list_data(*args):
 		    Assign_Count.append(0)
 		    Putup_Count.append(j)
 		    Putup_Count.append(0)
-
+	#Gettting a good list of all the headers already in the DB
 	putUp = c.execute("SELECT * FROM PutUpQA")
 	Put_Headers = list(map(lambda x: x[0], c.description))
 	pickup = c.execute("SELECT * FROM PickedUpQA")
 	Pick_Headers = list(map(lambda x: x[0], c.description))
 	assign = c.execute("SELECT * FROM AssignedQA")
 	Assign_Headers = list(map(lambda x: x[0], c.description))
-
+	#Checking to see if the incoming CSV, and if not, appending them
 	for i in Pick_Headers:
 		if i not in Pickup_Count:
 			Pickup_Count.append(i)
@@ -70,7 +68,7 @@ def create_list_data(*args):
 def all_names(csvNames, dbNames):
 	#Decided not to write straight to dbNames for clarity's sake
 	Name_Bank = dbNames
-
+	#Ensuring all names are in and alphabetical for easy access
 	for name in csvNames:
 		if name not in Name_Bank:
 			Name_Bank.append(name)
@@ -95,30 +93,33 @@ def append_table_cols(specialist):
 	tables = ['AssignedQA','PickedUpQA','PutUpQA']
 	for table in tables:
 		for name in specialist:
+			#Putting in any new specialist into the DB column - Using try/except to handle "Already Exists" errors.
 			try:
 				#Fix this in the future with better SQL to avoid the try/except maybe?
 				c.execute("ALTER TABLE " + table + " ADD COLUMN'" + name + "' TEXT")
 			except:
 				#If they're already in the DB, I really don't want anything to happen
 				pass
-
+			
 	#DATA ENTRY FUNCTIONS
 def data_entry_Metrics(today, TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate):
-    c.execute("INSERT INTO Metrics ('Date', TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate) VALUES (?,?,?,?,?,?)",
-          (today, TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate))
-    conn.commit()
+	#Putting the metrics into the DB
+	c.execute("INSERT INTO Metrics ('Date', TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate) VALUES (?,?,?,?,?,?)",
+        	(today, TotalQA, AssignedQA, UnAssigned, AverageTimeUntilCompleted, AverageTimeUntilDueDate))
+   	conn.commit()
 
 def data_entry_Totals(today, Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other):
-    
-    c.execute("INSERT INTO Totals ('Date', Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other) VALUES (?,?,?,?,?,?,?,?)",
-          (today, Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other))
-    conn.commit()
+    	#Putting the Totals into the DB
+	c.execute("INSERT INTO Totals ('Date', Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other) VALUES (?,?,?,?,?,?,?,?)",
+		(today, Initial, Delivery, Launch, SchoolChoice, Payment, YRU, Other))
+	conn.commit()
 
 def data_entry_AssignedQA(today, Assign_Count):	
+	#Creating the Tuple for the SQLite command
 	Dynamic_Names = ""
 	Dynamic_Values = "?, "
 	List_Data = [today]
-
+	
 	for i in Assign_Count:
 		if type(i) == int:
 			List_Data.append(i)
@@ -126,14 +127,14 @@ def data_entry_AssignedQA(today, Assign_Count):
 		if type(i) == str:
 			Dynamic_Names += ("'" + str(i) + "', ")
 
-	#SQLite3 takes a tuple argument for the inputs to the DB
+	#SQLite3 takes a tuple argument for the inputs to the DB. Created here
 	Tuple_Data = tuple(List_Data)
-
+	#using the above for the Info update
 	c.execute("INSERT INTO AssignedQA('Date', " + Dynamic_Names[:-2] + ") VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
 	conn.commit()
 
 def data_entry_PickedUpQA(today, Pickup_Count):
-	#This needs to happen AFTER the name cols in the DB have been updated	
+	#Same as above
 	Dynamic_Names = ""
 	Dynamic_Values = "?, "
 	List_Data = [today]
@@ -145,13 +146,13 @@ def data_entry_PickedUpQA(today, Pickup_Count):
 		if type(i) == str:
 			Dynamic_Names += ("'" + str(i) + "', ")
 
-	#SQLite3 takes a tuple argument for the inputs to the DB
 	Tuple_Data = tuple(List_Data)
 
 	c.execute("INSERT INTO PickedUpQA('Date', " + Dynamic_Names[:-2] + ") VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
 	conn.commit()
     
 def data_entry_PutUpQA(today, Putup_Count):
+	#Same as above
 	Dynamic_Names = ""
 	Dynamic_Values = "?, "
 	List_Data = [today]
@@ -162,13 +163,13 @@ def data_entry_PutUpQA(today, Putup_Count):
 			Dynamic_Values +="?, "
 		if type(i) == str:
 			Dynamic_Names += ("'" + str(i) + "', ")
-	#SQLite3 takes a tuple argument for the inputs to the DB
+
 	Tuple_Data = tuple(List_Data)
 	c.execute("INSERT INTO PutUpQA('Date', " + Dynamic_Names[:-2] + ") VALUES (" + Dynamic_Values[:-2] + ")", Tuple_Data)
 	conn.commit()
 
 def data_entry_Specialists(today, csv_File):
-	#This is probably fine TBH
+	#This is what the code looked like everywhere before I made most of it dynamic. I don't like it, but I dont see a reason to make a dynamic version of this as the columns don't update
 	for row in csv_File[1:]:
 		c.execute('INSERT INTO "' + row[3] + '"("Date", "Taken By", "DueDate", Netsuite, LeadSpecialist, District, Year, Solution, QAType, SIS, ENT, Payment, Localization, SC, SSO, SchoolLocator, NorthCarolina, EmailHistory, CompletedDate, Submitted, qa_Assigned) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
 		(today, row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15], row[16], row[17], row[18], row[19]))
@@ -189,6 +190,7 @@ def metrics(readCSV, nameBank):
 	'''
 	Consider splitting this into two or more functions? Would make it tons more manageable.
 	'''
+	#I Ran into a few issues here with the CSV behaving oddly, so I made it an iterable and reset it after every function
 	#Writing everything once as a global seemed the most convenient in this case.
 	global Pickup_Count
 	global Assign_Count
